@@ -41,7 +41,7 @@ jobs:
       - name: Download Last Successful Built Source
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: Build and Upload Artifact
+          workflow: build.yml
           workflow_conclusion: success
           name: built-source
           branch: main
