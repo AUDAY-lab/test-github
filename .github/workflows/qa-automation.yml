@@ -23,28 +23,77 @@ on:
 
   schedule:
     - cron: "30 14 * * *" # Daily at 8:00 PM IST (2:30 PM UTC)
-
+    
 jobs:
-  build:
+  install_build_tools:
     runs-on: windows-latest
+    environment: ${{ github.event.inputs.whichEnv || 'sit' }}
+
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    env:
+      WHICH_ENV: ${{ github.event.inputs.whichEnv }}
+      TEST_TAG: ${{ github.event.inputs.testTag }}
+      MAVEN_RUN_ENV: ${{ github.event.inputs.whichEnv == 'sit' && 'ENPLSIT' || 'ENPLUAT' }}
+      REPORT_SA_CONTAINER: ${{ github.event.inputs.whichEnv == 'sit' && 'sit-reports' || 'uat-reports' }}
+      MAVEN_REPO_LOCAL: ${{ github.workspace }}/.m2/repository
+
     steps:
       - name: Checkout QA Automation Repo
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: enpl-qa-automation
 
-      - name: Set up Java 21
+      - name: Get Latest Commit SHA
+        id: get_sha
+        working-directory: enpl-qa-automation
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Cache Build Source
+        id: cache-build
+        uses: actions/cache@v4
+        with:
+          path: enpl-qa-automation
+          key: built-source-${{ runner.os }}-${{ steps.get_sha.outputs.sha }}
+          restore-keys: |
+            built-source-${{ runner.os }}-
+
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
+          java-version: '21'
+          distribution: 'temurin'
 
-      - name: Echo Secrets
+      - name: Setup Maven
+        uses: stCarolas/setup-maven@v4
+        with:
+          maven-version: '3.9.9'
+
+      - name: Debug Java/Maven
         run: |
-          echo "Username: ${{ secrets.SVCUSERNAME }}"
-          echo "Password: ${{ secrets.SVCPASSWORD }}"
-          echo "TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}"
-          echo "CLIENT_ID: ${{ secrets.AZURE_AD_CLIENT_ID }}"
-          echo "CLIENT_SECRET: ${{ secrets.AZURE_AD_CLIENT_SECRET }}"
-          echo "QaReportstorageAccountName: ${{ secrets.QA_REPORT_STORAGE_ACCOUNT_NAME }}"
-          echo "QaReportstorageAccountKey: ${{ secrets.QA_REPORT_STORAGE_ACCOUNT_KEY }}"
+          java -version
+          mvn -version
+
+      - name: Install enpl-api-automation
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        working-directory: enpl-qa-automation
+        run: |
+          echo "Installing fresh build..."
+          mvn clean install -DskipTests -Dmaven.repo.local=$MAVEN_REPO_LOCAL
+
+      - name: Upload Built Source
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-source
+          path: enpl-qa-automation
+
+      - name: Download Last Successful Built Source
+        if: steps.cache-build.outputs.cache-hit == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: built-source
+          path: ${{ github.workspace }}
 
   
