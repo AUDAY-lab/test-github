@@ -18,6 +18,10 @@ on:
 
   schedule:
     - cron: "30 14 * * *" # Daily at 8:00 PM IST (2:30 PM UTC)
+    
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   install_build_tools:
