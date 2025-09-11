@@ -21,15 +21,17 @@ on:
           - "@Smoke"
           - "@Acceptance"
 
+  push:
+    branches:
+      - main
+
   schedule:
     - cron: "30 14 * * *" # Daily at 8:00 PM IST (2:30 PM UTC)
-    
+
 jobs:
   install_build_tools:
     runs-on: windows-latest
     environment: ${{ github.event.inputs.whichEnv || 'sit' }}
-
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     env:
       WHICH_ENV: ${{ github.event.inputs.whichEnv }}
@@ -45,19 +47,15 @@ jobs:
           ref: main
           path: enpl-qa-automation
 
-      - name: Get Latest Commit SHA
-        id: get_sha
-        working-directory: enpl-qa-automation
-        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Cache Build Source
+      # ✅ Cache Maven dependencies
+      - name: Cache Maven dependencies
         id: cache-build
         uses: actions/cache@v4
         with:
-          path: enpl-qa-automation
-          key: built-source-${{ runner.os }}-${{ steps.get_sha.outputs.sha }}
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            built-source-${{ runner.os }}-
+            maven-${{ runner.os }}-
 
       - name: Setup Java 21
         uses: actions/setup-java@v4
@@ -75,25 +73,28 @@ jobs:
           java -version
           mvn -version
 
+      # ✅ Install only if cache miss AND push event
       - name: Install enpl-api-automation
-        if: steps.cache-build.outputs.cache-hit != 'true'
+        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'push'
         working-directory: enpl-qa-automation
         run: |
-          echo "Installing fresh build..."
-          mvn clean install -DskipTests -Dmaven.repo.local=$MAVEN_REPO_LOCAL
+          echo "Cache miss + Push event = Fresh build"
+          mvn clean install -DskipTests "-Dmaven.repo.local=${env:MAVEN_REPO_LOCAL}"
 
+      # ✅ Download last successful build if schedule run
+      - name: Download Last Successful Built Source
+        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'schedule'
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: QA Automation Pipeline
+          workflow_conclusion: success
+          name: built-source
+          path: enpl-qa-automation
+
+      # ✅ Upload built source (from push builds)
       - name: Upload Built Source
-        if: steps.cache-build.outputs.cache-hit != 'true'
+        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: built-source
           path: enpl-qa-automation
-
-      - name: Download Last Successful Built Source
-        if: steps.cache-build.outputs.cache-hit == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: built-source
-          path: ${{ github.workspace }}
-
-  
