@@ -8,22 +8,13 @@ on:
         required: true
         default: "sit"
         type: choice
-        options:
-          - sit
-          - UAT
+        options: [sit, UAT]
       testTag:
         description: "Cucumber Tag to Run"
         required: true
         default: "@Regression"
         type: choice
-        options:
-          - "@Regression"
-          - "@Smoke"
-          - "@Acceptance"
-
-  push:
-    branches:
-      - main
+        options: ["@Regression", "@Smoke", "@Acceptance"]
 
   schedule:
     - cron: "30 14 * * *" # Daily at 8:00 PM IST (2:30 PM UTC)
@@ -39,62 +30,14 @@ jobs:
       MAVEN_RUN_ENV: ${{ github.event.inputs.whichEnv == 'sit' && 'ENPLSIT' || 'ENPLUAT' }}
       REPORT_SA_CONTAINER: ${{ github.event.inputs.whichEnv == 'sit' && 'sit-reports' || 'uat-reports' }}
       MAVEN_REPO_LOCAL: ${{ github.workspace }}/.m2/repository
-
+      
     steps:
-      - name: Checkout QA Automation Repo
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: enpl-qa-automation
+      - uses: actions/checkout@v4
 
-      # ✅ Cache Maven dependencies
-      - name: Cache Maven dependencies
-        id: cache-build
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            maven-${{ runner.os }}-
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Setup Maven
-        uses: stCarolas/setup-maven@v4
-        with:
-          maven-version: '3.9.9'
-
-      - name: Debug Java/Maven
-        run: |
-          java -version
-          mvn -version
-
-      # ✅ Install only if cache miss AND push event
-      - name: Install enpl-api-automation
-        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'push'
-        working-directory: enpl-qa-automation
-        run: |
-          echo "Cache miss + Push event = Fresh build"
-          mvn clean install -DskipTests "-Dmaven.repo.local=${env:MAVEN_REPO_LOCAL}"
-
-      # ✅ Download last successful build if schedule run
       - name: Download Last Successful Built Source
-        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'schedule'
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: QA Automation Pipeline
+          workflow: Build and Upload Artifact
           workflow_conclusion: success
           name: built-source
-          path: enpl-qa-automation
-
-      # ✅ Upload built source (from push builds)
-      - name: Upload Built Source
-        if: steps.cache-build.outputs.cache-hit != 'true' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: built-source
-          path: enpl-qa-automation
+          path: ./built
