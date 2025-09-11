@@ -21,7 +21,7 @@ on:
     
 permissions:
   contents: read
-  actions: read
+  actions: write
 
 jobs:
   install_build_tools:
@@ -44,4 +44,5 @@ jobs:
           workflow: Build and Upload Artifact
           workflow_conclusion: success
           name: built-source
+          branch: main
           path: ./built
