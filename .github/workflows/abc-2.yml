@@ -27,21 +27,27 @@ jobs:
       SAMPLE_SECRET: ${{ secrets.SAMPLE_SECRET }}
 
     steps:
-      - name: List available artifacts
+      - name: Find latest artifact and download
+        id: fetch
         run: |
-          echo "Finding latest artifact for ${PROJECT}-${ENVIRONMENT}"
-          gh api repos/${{ github.repository }}/actions/artifacts --paginate --jq \
-            '.artifacts[] | select(.name | startswith("sample-'$PROJECT'-'$ENVIRONMENT'")) | {name: .name, created_at: .created_at}' | jq -s 'sort_by(.created_at) | reverse'
+          echo "🔍 Finding latest artifact for ${PROJECT}-${ENVIRONMENT}"
+          artifacts=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate --jq \
+            '.artifacts[] | select(.name | startswith("sample-'$PROJECT'-'$ENVIRONMENT'")) | {name: .name, created_at: .created_at, id: .id}' | jq -s 'sort_by(.created_at) | reverse')
+          latest_id=$(echo "$artifacts" | jq -r '.[0].id')
+          latest_name=$(echo "$artifacts" | jq -r '.[0].name')
+
+          if [ -z "$latest_id" ]; then
+            echo "❌ No matching artifact found!"
+            exit 1
+          fi
+
+          echo "✅ Latest artifact: $latest_name (ID: $latest_id)"
+          gh api repos/${{ github.repository }}/actions/artifacts/$latest_id/zip > artifact.zip
+          unzip -q artifact.zip -d ./downloaded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download latest artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sample-${{ env.PROJECT }}-${{ env.ENVIRONMENT }}
-          path: downloaded
-
-      - name: Display downloaded file
+      - name: Show file contents
         run: |
           echo "===== FILE CONTENT ====="
           cat downloaded/info.txt
