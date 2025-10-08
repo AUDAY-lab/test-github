@@ -13,11 +13,9 @@ jobs:
       - name: Capture runner details
         id: save_info
         run: |
-          echo "Runner Name: ${{ runner.name }}"
-          echo "Runner OS: ${{ runner.os }}"
-          echo "Runner Arch: ${{ runner.arch }}"
           RUNNER_INFO="Name=${{ runner.name }}, OS=${{ runner.os }}, Arch=${{ runner.arch }}"
           echo "runner_info=$RUNNER_INFO" >> $GITHUB_OUTPUT
+          echo "Captured runner info: $RUNNER_INFO"
 
   job2-approval:
     name: Manual Approval
@@ -25,15 +23,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: dev
-      # This requires manual approval in "Settings → Environments → dev"
-      # You can add approvers under that environment
     steps:
       - name: Wait for approval
-        run: echo "Awaiting manual approval from environment protection rules..."
+        run: echo "Awaiting manual approval (set in environment 'dev')..."
 
   job3-echo-info:
     name: Echo Runner Info
-    needs: job2-approval
+    needs: [job1-get-runner-info, job2-approval]
     runs-on: ubuntu-latest
     steps:
       - name: Print runner info from Job 1
