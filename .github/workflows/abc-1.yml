@@ -1,0 +1,44 @@
+name: ABC - Upload File
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+    secrets:
+      SAMPLE_SECRET:
+        required: true
+
+jobs:
+  upload-file:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: write
+
+    env:
+      PROJECT: ${{ inputs.project }}
+      ENVIRONMENT: ${{ inputs.environment }}
+      SAMPLE_SECRET: ${{ secrets.SAMPLE_SECRET }}
+
+    steps:
+      - name: Create and upload file
+        run: |
+          mkdir -p output
+          echo "Project: ${PROJECT}" > output/info.txt
+          echo "Environment: ${ENVIRONMENT}" >> output/info.txt
+          echo "Secret: ${SAMPLE_SECRET}" >> output/info.txt
+          TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+          echo "Timestamp: ${TIMESTAMP}" >> output/info.txt
+          cat output/info.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-${{ env.PROJECT }}-${{ env.ENVIRONMENT }}
+          path: output/info.txt
