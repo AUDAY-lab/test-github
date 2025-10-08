@@ -1,0 +1,48 @@
+name: ABC - Download and Echo File
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+    secrets:
+      SAMPLE_SECRET:
+        required: true
+
+jobs:
+  download-file:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: read
+
+    env:
+      PROJECT: ${{ inputs.project }}
+      ENVIRONMENT: ${{ inputs.environment }}
+      SAMPLE_SECRET: ${{ secrets.SAMPLE_SECRET }}
+
+    steps:
+      - name: List available artifacts
+        run: |
+          echo "Finding latest artifact for ${PROJECT}-${ENVIRONMENT}"
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate --jq \
+            '.artifacts[] | select(.name | startswith("sample-'$PROJECT'-'$ENVIRONMENT'")) | {name: .name, created_at: .created_at}' | jq -s 'sort_by(.created_at) | reverse'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download latest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sample-${{ env.PROJECT }}-${{ env.ENVIRONMENT }}
+          path: downloaded
+
+      - name: Display downloaded file
+        run: |
+          echo "===== FILE CONTENT ====="
+          cat downloaded/info.txt
+          echo "========================"

@@ -1,0 +1,44 @@
+name: ABC Test Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Select workflow to run"
+        required: true
+        type: choice
+        options: [upload, download]
+      project:
+        description: "Select Project"
+        required: true
+        type: choice
+        options: [PROJECT1, PROJECT2]
+      environment:
+        description: "Select Environment"
+        required: true
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+jobs:
+  abc-upload:
+    if: ${{ github.event.inputs.action == 'upload' }}
+    uses: ./.github/workflows/abc-1.yml
+    with:
+      project: ${{ github.event.inputs.project }}
+      environment: ${{ github.event.inputs.environment }}
+    secrets:
+      SAMPLE_SECRET: ${{ github.event.inputs.environment == 'dev' && secrets.PROJECT1_DEV_SAMPLE_SECRET || secrets.PROJECT1_PROD_SAMPLE_SECRET }}
+
+  abc-download:
+    if: ${{ github.event.inputs.action == 'download' }}
+    uses: ./.github/workflows/abc-2.yml
+    with:
+      project: ${{ github.event.inputs.project }}
+      environment: ${{ github.event.inputs.environment }}
+    secrets:
+      SAMPLE_SECRET: ${{ github.event.inputs.environment == 'dev' && secrets.PROJECT1_DEV_SAMPLE_SECRET || secrets.PROJECT1_PROD_SAMPLE_SECRET }}
