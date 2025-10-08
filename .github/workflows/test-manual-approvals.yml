@@ -1,0 +1,41 @@
+name: Sample 3-Job Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  job1-get-runner-info:
+    name: Get Runner Info
+    runs-on: ubuntu-latest
+    outputs:
+      runner_info: ${{ steps.save_info.outputs.runner_info }}
+    steps:
+      - name: Capture runner details
+        id: save_info
+        run: |
+          echo "Runner Name: ${{ runner.name }}"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Runner Arch: ${{ runner.arch }}"
+          RUNNER_INFO="Name=${{ runner.name }}, OS=${{ runner.os }}, Arch=${{ runner.arch }}"
+          echo "runner_info=$RUNNER_INFO" >> $GITHUB_OUTPUT
+
+  job2-approval:
+    name: Manual Approval
+    needs: job1-get-runner-info
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      # This requires manual approval in "Settings → Environments → dev"
+      # You can add approvers under that environment
+    steps:
+      - name: Wait for approval
+        run: echo "Awaiting manual approval from environment protection rules..."
+
+  job3-echo-info:
+    name: Echo Runner Info
+    needs: job2-approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print runner info from Job 1
+        run: |
+          echo "Runner details from Job 1: ${{ needs.job1-get-runner-info.outputs.runner_info }}"
