@@ -1,4 +1,5 @@
 name: ABC Test Pipeline
+run-name: ABC ${{ github.event.inputs.action }} for ${{ github.event.inputs.project }} (${{ github.event.inputs.environment }})
 
 on:
   workflow_dispatch:
@@ -42,3 +43,4 @@ jobs:
       environment: ${{ github.event.inputs.environment }}
     secrets:
       SAMPLE_SECRET: ${{ github.event.inputs.environment == 'dev' && secrets.PROJECT1_DEV_SAMPLE_SECRET || secrets.PROJECT1_PROD_SAMPLE_SECRET }}
+
